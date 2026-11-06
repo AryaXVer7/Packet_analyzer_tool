@@ -1,4 +1,6 @@
 from scapy.all import sniff, IP, TCP, UDP, ICMP, DNS, DNSQR, DNSRR, ARP
+from colorama import Fore, Style, init
+init(autoreset=True)
 
 stats = {
     "total" : 0,
@@ -56,18 +58,18 @@ blacklisted_ip = { # Only for Demo
 def check_blacklisted_ip(ip):
     if ip.src in blacklisted_ip:
         alert["blacklisted_ip"] += 1
-        print(f"[alert] Blacklisted Source IP found: {ip.src}")
+        print(Fore.RED + f"[alert] Blacklisted Source IP found: {ip.src}")
         
     if ip.dst in blacklisted_ip:
         alert["blacklisted_ip"] += 1        
-        print(f"[alert] Blacklisted Destination IP found: {ip.dst}")
+        print(Fore.RED + f"[alert] Blacklisted Destination IP found: {ip.dst}")
 
 def analyze_ip(packet):
     ip = packet[IP]
-    print(f"""=================================
-Source IP     : {ip.src}
-Destination IP: {ip.dst}
-""")
+    print(Fore.WHITE + Style.BRIGHT + """=================================""")
+    print(Fore.WHITE + Style.BRIGHT + f"Source IP     : {ip.src}")
+    print(Fore.LIGHTBLACK_EX + Style.BRIGHT + f"Destination IP: {ip.dst}")
+
     check_blacklisted_ip(ip)
   
 def analyze_tcp(packet):
@@ -78,19 +80,17 @@ def analyze_tcp(packet):
     flags_list = []
     for flag in flags:
         flags_list.append(tcp_flags.get(flag, flag))
-    print(f"""Flags           : {", ".join(flags_list)}""")
+    print(Fore.GREEN + f"""Flags           : {", ".join(flags_list)}""")
     
     if service is None:
         service = services.get(tcp.sport, "Unknown")
     
-    print(f"Service         : {service}")
+    print(Fore.GREEN + f"Service         : {service}")
         
-    print(f"""Protocol        : TCP
+    print(Fore.GREEN + f"""Protocol        : TCP
 Source Port     : {tcp.sport}
 Destination Port: {tcp.dport}
-=================================
-""")    
-        
+{Fore.WHITE + Style.BRIGHT}=================================""")    
     
 def analyze_udp(packet):
     udp = packet[UDP]
@@ -99,40 +99,37 @@ def analyze_udp(packet):
     if service is None:
         service = services.get(udp.sport, "Unknown")
     
-    print(f"Service         : {service}")
-    print(f"""Protocol        : UDP
+    print(Fore.CYAN + f"Service         : {service}")
+    print(Fore.CYAN + f"""Protocol        : UDP
 Source Port     : {udp.sport}
 Destination Port: {udp.dport}
-=================================
-""")
-
+{Fore.WHITE + Style.BRIGHT}=================================""")
 
 def analyze_dns(packet):
     dns = packet[DNS]
     
-    print(f"""---------------DNS---------------""")
+    print(Fore.BLUE + f"""---------------DNS---------------""")
     
     if dns.qr == 0:
-        print(f"Type             : Query")
+        print(Fore.BLUE + f"Type             : Query")
     else:
-        print(f"Type             : Response")
+        print(Fore.BLUE + f"Type             : Response")
     
     if packet.haslayer(DNSQR):
-        print(f"Domain           : {packet[DNSQR].qname.decode()}")  
+        print(Fore.BLUE + f"Domain           : {packet[DNSQR].qname.decode()}")  
         
     if dns.qr == 1 and packet.haslayer(DNSRR):
-        print(f"Answer           : {packet[DNSRR].rdata}")
+        print(Fore.BLUE + f"Answer           : {packet[DNSRR].rdata}")
         
-    print(f"""---------------------------------""")
+    print(Fore.BLUE + f"""---------------------------------""")
 
 def analyze_icmp(packet):
     icmp = packet[ICMP]
     stats["icmp"] += 1
-    print(f"""Protocol        : ICMP
+    print(Fore.YELLOW + f"""Protocol        : ICMP
 ICMP Code: {icmp.code}
 ICMP Type: {icmp_name.get(icmp.type, f"Unknown ({icmp.type})")}
-=================================
-""")
+{Fore.WHITE + Style.BRIGHT}=================================""")
     
 def analyze_arp(packet):
     
@@ -140,23 +137,23 @@ def analyze_arp(packet):
     
     arp = packet[ARP]
     
-    print(f"""---------------ARP---------------""")
+    print(Fore.MAGENTA + f"""---------------ARP---------------""")
     
     if arp.op == 1:
-        print(f"Type            : Request")
-        print(f"Sender IP       : {arp.psrc}")
-        print(f"Target IP       : {arp.pdst}")
+        print(Fore.MAGENTA + f"Type            : Request")
+        print(Fore.MAGENTA + f"Sender IP       : {arp.psrc}")
+        print(Fore.MAGENTA + f"Target IP       : {arp.pdst}")
         # print(f"Sender MAC      : {arp.hwsrc}")
         # print(f"Target MAC      : {arp.hwdst}")
         
     elif arp.op == 2:
-        print(f"Type            : Reply")
-        print(f"Sender IP       : {arp.psrc}")
-        print(f"Target IP       : {arp.pdst}")
+        print(Fore.MAGENTA + f"Type            : Reply")
+        print(Fore.MAGENTA + f"Sender IP       : {arp.psrc}")
+        print(Fore.MAGENTA + f"Target IP       : {arp.pdst}")
         # print(f"Sender MAC      : {arp.hwsrc}")
         # print(f"Target MAC      : {arp.hwdst}")        
                    
-    print(f"""---------------------------------""")
+    print(Fore.MAGENTA + f"""---------------------------------""")
 
 def analyze_packet(packet):
     stats["total"] += 1
@@ -169,6 +166,9 @@ def analyze_packet(packet):
         
         if packet.haslayer(TCP):
             analyze_tcp(packet)
+            
+            if packet.haslayer(DNS):
+                analyze_dns(packet)            
         
         elif packet.haslayer(UDP):
             analyze_udp(packet)
@@ -179,7 +179,11 @@ def analyze_packet(packet):
         elif packet.haslayer(ICMP):   
             analyze_icmp(packet)
 
-count = int(input("Enter number of packets you want to capture: "))
+print(Fore.YELLOW + Style.BRIGHT + '''=============================================
+              PACKET ANALYZER
+             Network Security Tool
+=============================================\n''')
+count = int(input("Enter number of packets to capture: "))
 
 print(f"Sniffing Packets...")
 
@@ -190,7 +194,7 @@ sniff(
     store = False
 )
        
-print(f"""================== Statistics ==================
+print(Fore.WHITE + Style.BRIGHT + f"""================== Statistics ==================
 Total Packets: {stats['total']}
 
 TCP          : {stats['tcp']}
@@ -200,6 +204,6 @@ ARP          : {stats['arp']}
 ================================================
 
 ================ Security Report ================
-Blaclisted IP: {alert['blacklisted_ip']}
+Blacklisted IP Alerts: {alert['blacklisted_ip']}
 =================================================
 """)
